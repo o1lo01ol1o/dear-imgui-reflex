@@ -5,7 +5,7 @@ package dear-imgui
   flags: +sdl2 +opengl
 
 source-repository-package
-    type: git
-    location: https://github.com/haskell-game/dear-imgui.hs
-    tag: 2fbe257c2497ff0e2193289f33ca276baf016f93
-    sha256: 0q0p0cllm96y5dy6v5lzi8dcsaz3rlkxvpjr8jssgq8sjyhx5bl8
+  type: git
+  location: https://github.com/o1lo01ol1o/reflex-sdl2
+  tag: 297283a36ba0049924196048130aaabed02f99f1
+  --sha256: 06lxfgp18l1car6wd07mbjn4yblnp89acf1i67nd815p2hx0ihbz

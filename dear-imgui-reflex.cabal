@@ -27,13 +27,19 @@ common common-options
     , base                    ^>=4.13.0.0
     , bytestring
     , dear-imgui
+    , exception-transformers
     , dependent-map
     , dependent-sum
     , dependent-sum-template
     , lens
+    , gl 
+    , sdl2
+    , text
+    , managed
     , mtl
-    , reflex
-    , reflex-basic-host
+    , reflex >= 0.8
+    , ref-tf
+    , reflex-sdl2
     , stm
 
   ghc-options:
@@ -71,7 +77,9 @@ executable dear-imgui-reflex-example
     , dear-imgui-reflex
     , gl
     , managed
+    , mtl
     , reflex
+    , reflex-sdl2
     , sdl2
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N

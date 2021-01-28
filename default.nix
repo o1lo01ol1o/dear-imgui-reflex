@@ -15,16 +15,30 @@ let
     # Cabal doesn't fetch submodules so we need to override the sources to get the c-source submodule.
     dear-imgui = pkgs.fetchgit {
       url = "https://github.com/haskell-game/dear-imgui.hs";
-      rev = "2fbe257c2497ff0e2193289f33ca276baf016f93";
-      sha256 = "1n23sgmxb839n19sgvpmm3ysr9fdgq2xddagyk8hg04lpr5d6wb2";
+      rev = "d227561885550cceb19e6a4fed854c7774b2fa1b";
+      sha256 = "0fc0hby6hxd0s996gfbrkn4p1hrqmmb02szh562b9a2vg6m863jr";
     };
   };
 in pkgs.haskell-nix.project {
   inherit compiler-nix-name;
-  # 'cleanGit' cleans a source directory based on the files known by git
-  src = pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "dear-imgui-reflex";
-    src = ./.;
-  };
-  modules = [{ packages.dear-imgui.src = srcs.dear-imgui; }];
+  src = ./.;
+  cabalProjectLocal = ''
+    source-repository-package
+      type: git
+      location: https://github.com/haskell-game/dear-imgui.hs
+      tag: d227561885550cceb19e6a4fed854c7774b2fa1b
+      --sha256: 0fc0hby6hxd0s996gfbrkn4p1hrqmmb02szh562b9a2vg6m863jr
+  '';
+  pkg-def-extras = [
+    (
+      hackage: {
+        dear-imgui = import (
+          pkgs.haskell-nix.callCabalToNix {
+            name = "dear-imgui";
+            src = srcs.dear-imgui;
+          }
+        );
+      }
+    )
+  ];
 }

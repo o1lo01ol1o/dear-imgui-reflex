@@ -1,29 +1,52 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
-module Reflex.DearImgGui (
-    runReflexDearImgGuiApp
-  , switchReflexDearImgGuiApp
-  , ReflexDearImgGuiApp(..)
-  , module Reflex.DearImgGui.Types
-  , module Reflex.DearImgGui.Events
-  ) where
+{-# LANGUAGE TypeFamilies #-}
 
-import Control.Monad (void, forever)
+module Reflex.DearImGui where
 
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Concurrent (forkIO, MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent (MVar, forkIO, newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVarIO, writeTVar)
+import Control.Exception
+-- import DearImGui.Types (DearImGuiEvent(..), EventM)
+-- import DearImGui.Main (App(..), customMain, continue, halt, suspendAndResume)
+-- import DearImGui.BChan (newBChan, writeBChan)
 
+import Control.Exception (bracket_)
+import Control.Monad (forever, void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Managed (managed, managed_, runManaged)
+import Data.Coerce (coerce)
+import Data.Text (Text)
+import DearImGui
+import qualified DearImGui
+import DearImGui.OpenGL
+  ( openGL2Init,
+    openGL2NewFrame,
+    openGL2RenderDrawData,
+    openGL2Shutdown,
+  )
+import DearImGui.SDL
+  ( pollEventWithImGui,
+    sdl2NewFrame,
+    sdl2Shutdown,
+  )
+import DearImGui.SDL.OpenGL (sdl2InitForOpenGL)
+import Graphics.GL
 import Reflex
-import Reflex.Host.Basic
+import Reflex.DearImGui.Events
+import Reflex.DearImGui.Types
+import Reflex.Host.Headless
+import SDL
+  ( Window,
+    WindowConfig,
+    createWindow,
+    destroyWindow,
+    glCreateContext,
+    glDeleteContext,
+    glSwapWindow,
+    initializeAll,
+  )
 
-import DearImgGui.Types (DearImgGuiEvent(..), EventM)
-import DearImgGui.Main (App(..), customMain, continue, halt, suspendAndResume)
-import DearImgGui.BChan (newBChan, writeBChan)
 
-
-import Reflex.DearImgGui.Types
-import Reflex.DearImgGui.Events
