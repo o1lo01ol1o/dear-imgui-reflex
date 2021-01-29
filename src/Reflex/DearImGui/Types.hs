@@ -70,10 +70,9 @@ button ::
   String ->
   m (Event t ())
 button t = do
-  evMotionData <- getAnySDLEvent
+  dState <- sdlPropagation
   (eState, eFire) <- newTriggerEvent
-  dState <- holdDyn () (() <$ evMotionData)
-  commitAction $ ffor dState (\_ -> liftIO $ DearImGui.button t >>= (\c -> if c then eFire () else pure ()))
+  commitAction $ ffor dState (const . liftIO $ DearImGui.button t >>= (\c -> if c then eFire () else pure ()))
   pure eState
 
 window ::
@@ -83,11 +82,10 @@ window ::
   m b ->
   m b
 window t child = do
-  evMotionData <- getAnySDLEvent
-  dState <- holdDyn () (() <$ evMotionData)
-  commitAction $ ffor (dState) (\_ -> void $ DearImGui.begin t)
+  dState <- sdlPropagation
+  commitAction $ ffor dState (const . void $ DearImGui.begin t)
   child' <- child
-  commitAction $ ffor (dState) (const DearImGui.end)
+  commitAction $ ffor dState (const DearImGui.end)
   pure child'
 
 
@@ -97,6 +95,11 @@ text ::
   String ->
   m () 
 text t = do 
+  dState <- sdlPropagation
+  commitAction $ ffor dState (const . DearImGui.text t)
+
+sdlPropagation :: ( ImGuiSDLReflex t m ) =>
+  m (Dynamic t ())
+sdlPropagation = do 
   evMotionData <- getAnySDLEvent
-  dState <- holdDyn () (() <$ evMotionData)
-  commitAction $ ffor (dState) (\_ -> DearImGui.text t)
+  holdDyn () (() <$ evMotionData)
