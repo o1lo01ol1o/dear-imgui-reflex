@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -23,117 +24,79 @@ import Data.Bifunctor (Bifunctor (second))
 import Data.Kind
 import Data.Text (Text)
 import DearImGui
+import DearImGui.OpenGL
+import DearImGui.SDL
 import GHC.Generics (Generic)
+import Graphics.GL
 import Reflex hiding (Additive)
 import Reflex.Host.Class
+import Reflex.SDL2
 
--- data StaticSpecBuilderEnv t
+type ImGuiAction m = Performable m ()
 
--- data ElementSpec = Label Text | Button Text deriving stock (Generic)
+type ImGuiSDLReflex t m = (MonadIO (Performable m),
+    MonadIO m,
+    Adjustable t m,
+    PostBuild t m,
+    PerformEvent t m,
+    TriggerEvent t m,
+    HasSDL2Events t m,
+    DynamicWriter t [Performable m ()] m,
+    MonadHold t m,
+    MonadFix m)
 
--- data ImGuiSpec
---   = Window Text [ElementSpec]
---   | NilSpec
---   | BothSpec ImGuiSpec ImGuiSpec
---   deriving stock (Generic)
+commitActions ::
+  (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m) =>
+  Dynamic t [ImGuiAction m] ->
+  m ()
+commitActions = tellDyn
 
--- instance Semigroup ImGuiSpec where
---   (<>) a b = a `BothSpec` b
+commitAction ::
+  (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m) =>
+  Dynamic t (ImGuiAction m) ->
+  m ()
+commitAction = tellDyn . fmap pure
 
-data ImGuiWidgetCtx t = ImGuiWidgetCtx
+ffor2 :: Reflex t => Dynamic t a -> Dynamic t b -> (a -> b -> c) -> Dynamic t c
+ffor2 a b f = zipDynWith f a b
 
---   { _imGuiWidgetCtx_input :: Event t (Either () Text)
---   }
+ffor2up ::
+  Reflex t => Dynamic t a -> Dynamic t b1 -> ((a, b1) -> b) -> Dynamic t b
+ffor2up a b = ffor (zipDyn a b)
 
-type RenderActions = IO ()
-
--- | A class for widgets that can produce IO () actions that correspond to dear-imgui renders
-class (Reflex t, Monad m) => RenderWriter t m | m -> t where
-  -- | Send images upstream for rendering
-  tellRenders :: Behavior t [RenderActions] -> m ()
-
-instance (Monad m, Reflex t) => RenderWriter t (BehaviorWriterT t [RenderActions] m) where
-  tellRenders = tellBehavior
-
-newtype ImGuiWidget t m a = ImGuiWidget
-  { unImGuiWidget :: BehaviorWriterT t [RenderActions] (ReaderT (ImGuiWidgetCtx t) m) a
-  }
-  deriving stock
-    (Functor, Generic)
-  deriving newtype
-    ( Applicative,
-      Monad,
-      MonadSample t,
-      MonadHold t,
-      MonadFix,
-      NotReady t,
-      RenderWriter t,
-      PostBuild t,
-      TriggerEvent t,
-      MonadReflexCreateTrigger t,
-      MonadIO
-    )
-
-deriving newtype instance PerformEvent t m => PerformEvent t (ImGuiWidget t m)
-
-instance (Adjustable t m, MonadHold t m, Reflex t) => Adjustable t (ImGuiWidget t m) where
-  runWithReplace a0 a' = ImGuiWidget $ runWithReplace (unImGuiWidget a0) $ fmap unImGuiWidget a'
-  traverseIntMapWithKeyWithAdjust f dm0 dm' =
-    ImGuiWidget $
-      traverseIntMapWithKeyWithAdjust (\k v -> unImGuiWidget (f k v)) dm0 dm'
-  traverseDMapWithKeyWithAdjust f dm0 dm' = ImGuiWidget $ do
-    traverseDMapWithKeyWithAdjust (\k v -> unImGuiWidget (f k v)) dm0 dm'
-  traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = ImGuiWidget $ do
-    traverseDMapWithKeyWithAdjustWithMove (\k v -> unImGuiWidget (f k v)) dm0 dm'
-
--- | The output of a 'ImGuiWidget'
-newtype ImGuiWidgetOut t = ImGuiWidgetOut
-  { _imGuiWidgetOut_shutdown :: Event t ()
-  }
-
-instance MonadTrans (ImGuiWidget t) where
-  lift f = ImGuiWidget $ lift $ lift f
-
--- | Runs a 'ImGuiWidget' with a given context
-runImGuiWidget ::
-  (Reflex t, Monad m) =>
-  ImGuiWidgetCtx t ->
-  ImGuiWidget t m a ->
-  m (a, Behavior t [RenderActions])
-runImGuiWidget ctx w = runReaderT (runBehaviorWriterT (unImGuiWidget w)) ctx
-
--- pane title child =  ImGuiWidget $ do
---   ctx <- lift ask
---   let ra = second (fmap (fmap ((:[]) . mconcat)) . sequenceA . sequenceA ). sequenceA $ withWindow' title ctx child
---   let (results, actionsM) = ra
---   actions <- liftIO actionsM
---   tellRenders actions
---   return results
-
--- withWindow' :: (Reflex t) => String -> ImGuiWidgetCtx t -> ImGuiWidget t IO a -> IO (a, Behavior t [RenderActions])
--- withWindow' t ctx child = do
---     void $ DearImGui.begin t
---     (r,a) <- runImGuiWidget ctx child
---     DearImGui.end
---     pure (r,a)
-
-button' :: (TriggerEvent t m, Reflex t) => String -> ImGuiWidget t m (Event t ())
-button' t = ImGuiWidget $ do
+button ::
+  ( ImGuiSDLReflex t m
+  ) =>
+  String ->
+  m (Event t ())
+button t = do
+  evMotionData <- getAnySDLEvent
   (eState, eFire) <- newTriggerEvent
-  let act = DearImGui.button t >>= (\c -> if c then eFire () else pure ())
-  tellRenders $ constant [act]
+  dState <- holdDyn () (() <$ evMotionData)
+  commitAction $ ffor dState (\_ -> liftIO $ DearImGui.button t >>= (\c -> if c then eFire () else pure ()))
   pure eState
 
-withWindow :: (Monad m, Reflex t) => String -> ImGuiWidget t m a -> ImGuiWidget t m a
-withWindow t child = ImGuiWidget $ do
-  ctx <- ask
-  let b = void $ DearImGui.begin t
-  (results, actions) <- lift . lift $ runImGuiWidget ctx child
-  let e = DearImGui.end
-  tellRenders $ constant [b]
-  tellRenders actions
-  tellRenders $ constant [e]
-  pure results
+window ::
+  ( ImGuiSDLReflex t m
+  ) =>
+  String ->
+  m b ->
+  m b
+window t child = do
+  evMotionData <- getAnySDLEvent
+  dState <- holdDyn () (() <$ evMotionData)
+  commitAction $ ffor (dState) (\_ -> void $ DearImGui.begin t)
+  child' <- child
+  commitAction $ ffor (dState) (const DearImGui.end)
+  pure child'
 
-imGuiWidget :: (Reflex t, TriggerEvent t m) => ImGuiWidget t m (Event t ())
-imGuiWidget = withWindow "foo" $ button' "fooBtn"
+
+text ::
+  ( ImGuiSDLReflex t m
+  ) =>
+  String ->
+  m () 
+text t = do 
+  evMotionData <- getAnySDLEvent
+  dState <- holdDyn () (() <$ evMotionData)
+  commitAction $ ffor (dState) (\_ -> DearImGui.text t)
