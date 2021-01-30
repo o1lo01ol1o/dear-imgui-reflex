@@ -14,7 +14,7 @@ import Control.Monad (forM_, guard, void)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Managed
 import Control.Monad.Reader (MonadReader (..), runReaderT)
-import DearImGui hiding (button, text)
+import DearImGui hiding (button, separator, text)
 import qualified DearImGui
 import DearImGui.OpenGL
 import DearImGui.SDL
@@ -58,9 +58,17 @@ app win = do
     untilNothingM m = m >>= maybe (return ()) (\_ -> untilNothingM m)
 
 guest :: (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m, MonadReader Renderer m) => m ()
-guest =  do
+guest = do
   eC <- window "Bar Window" $ do
-    text "Bar"
-    button "click me"
+              text "Bar"
+              button "click me"
+          
   void . holdView (window "The button is yet unclicked" $ pure ()) $
-    ffor eC $ const (window "There was a click!" $ text "See how we react?")
+    ffor eC $
+      const
+        ( window "There was a click!" $ do
+            void . childWindow "And?" $ do
+              text "See how we react?"
+              separator $ text "We react with a separator!"
+              button "And another button!"
+        )

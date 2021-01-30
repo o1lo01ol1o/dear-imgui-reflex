@@ -15,8 +15,8 @@ let
     # Cabal doesn't fetch submodules so we need to override the sources to get the c-source submodule.
     dear-imgui = pkgs.fetchgit {
       url = "https://github.com/haskell-game/dear-imgui.hs";
-      rev = "d227561885550cceb19e6a4fed854c7774b2fa1b";
-      sha256 = "0fc0hby6hxd0s996gfbrkn4p1hrqmmb02szh562b9a2vg6m863jr";
+      rev = "af49a7b3fbd1833ed36459ec36fed3d58fb3d30f";
+      sha256 = "0679mvb40gdcrappfwqz9xk7vsy8bj9xd9524wd89qz7njjlcbf3";
     };
   };
 in pkgs.haskell-nix.project {
@@ -26,8 +26,8 @@ in pkgs.haskell-nix.project {
     source-repository-package
       type: git
       location: https://github.com/haskell-game/dear-imgui.hs
-      tag: d227561885550cceb19e6a4fed854c7774b2fa1b
-      --sha256: 0fc0hby6hxd0s996gfbrkn4p1hrqmmb02szh562b9a2vg6m863jr
+      tag: af49a7b3fbd1833ed36459ec36fed3d58fb3d30f
+      --sha256: 0679mvb40gdcrappfwqz9xk7vsy8bj9xd9524wd89qz7njjlcbf3
   '';
   pkg-def-extras = [
     (
