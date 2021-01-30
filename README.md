@@ -4,4 +4,5 @@
 [![Hackage](https://img.shields.io/hackage/v/dear-imgui-reflex.svg?logo=haskell)](https://hackage.haskell.org/package/dear-imgui-reflex)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-See README for more info
+dear-imgui wrappers to work with reflex-sdl2.  See examples.
+
