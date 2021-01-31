@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -14,7 +15,7 @@ import Control.Monad (forM_, guard, void)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Managed
 import Control.Monad.Reader (MonadReader (..), runReaderT)
-import DearImGui hiding (button, separator, text)
+import DearImGui hiding (button, combo, dragFloat, dragFloat4, progressBar, selectable, separator, sliderFloat2, smallButton, text)
 import qualified DearImGui
 import DearImGui.OpenGL
 import DearImGui.SDL
@@ -57,18 +58,43 @@ app win = do
   where
     untilNothingM m = m >>= maybe (return ()) (\_ -> untilNothingM m)
 
+data ASum
+  = OneThing
+  | Another
+  | AndAnother
+  deriving (Eq, Enum, Bounded, Show)
+
 guest :: (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m, MonadReader Renderer m) => m ()
 guest = do
   eC <- window "Bar Window" $ do
-              text "Bar"
-              button "click me"
-          
+    text "Bar"
+    button "click me"
   void . holdView (window "The button is yet unclicked" $ pure ()) $
     ffor eC $
       const
         ( window "There was a click!" $ do
-            void . childWindow "And?" $ do
+            childWindow "And?" $ do
               text "See how we react?"
-              separator $ text "We react with a separator!"
-              button "And another button!"
+              separator $ pure ()
+              selectionE <- comboFromBoundedEnum @ASum "A multi-select" "ASum value" show
+              holdViewVoid (pure ()) $
+                ffor selectionE $ \selection -> do
+                  text . constDyn $ "You selected:  " <> show selection
+              separator $ pure ()
+              valueE <- dragFloat4 "A floating Selector" (0, 0, 0, 0) (constDyn $ 1 / 2) (-10) 10
+              holdViewVoid (pure ()) $
+                ffor valueE $ \value -> do
+                  text . constDyn $ "You selected:  " <> show value
+              separator $ pure ()
+              svalueE <- sliderFloat2 "A sliding Selector" (0, 0) (-10) 10
+              holdViewVoid (pure ()) $
+                ffor svalueE $ \value -> do
+                  text . constDyn $ "You selected:  " <> show value
+              separator $ pure ()
+              colorE <- colorPicker "A colorPicker" (ImVec3 0 0 0)
+              holdViewVoid (pure ()) $
+                ffor colorE $ \(ImVec3 x y z) -> do
+                  text . constDyn $ "You selected:  " <> show (x, y, z)
         )
+  void . holdView (window "Progress" $ progressBar (constDyn 0) (constDyn $ Just "0%")) $
+    ffor eC $ const (window "Progress!" $ progressBar (constDyn 0.5) (constDyn $ Just "50%"))

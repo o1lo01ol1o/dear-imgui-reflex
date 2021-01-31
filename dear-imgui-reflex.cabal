@@ -40,6 +40,7 @@ common common-options
     , reflex >= 0.8
     , ref-tf
     , reflex-sdl2
+    , StateVar
     , stm
 
   ghc-options:
