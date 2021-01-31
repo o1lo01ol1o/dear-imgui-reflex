@@ -26,6 +26,8 @@ common common-options
   build-depends:
     , base                    ^>=4.13.0.0
     , bytestring
+    , constraints
+    , constraints-extras
     , dear-imgui
     , exception-transformers
     , dependent-map
@@ -41,6 +43,7 @@ common common-options
     , ref-tf
     , reflex-sdl2
     , StateVar
+    , some
     , stm
 
   ghc-options:
@@ -74,6 +77,9 @@ executable dear-imgui-reflex-example
   main-is:        Main.hs
   build-depends:
     , base
+    , constraints
+    , constraints-extras
+    , dependent-sum
     , dear-imgui
     , dear-imgui-reflex
     , gl
@@ -81,6 +87,7 @@ executable dear-imgui-reflex-example
     , mtl
     , reflex
     , reflex-sdl2
+    , some
     , sdl2
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N

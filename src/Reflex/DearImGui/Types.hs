@@ -4,6 +4,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -11,9 +13,16 @@
 module Reflex.DearImGui.Types where
 
 import Control.Monad.Reader (MonadFix, MonadIO (..), void)
+import Data.Coerce (coerce)
+import Data.Constraint.Extras ( has, Has )
+import Data.Dependent.Sum ( DSum(..), (==>) )
+import Data.Foldable (traverse_)
+import Data.Functor.Identity (Identity)
 import Data.IORef (newIORef, readIORef)
 import Data.Maybe (catMaybes)
+import Data.Some ( Some(..) )
 import qualified DearImGui
+import Foreign.C (CFloat (..))
 import GHC.IORef (IORef)
 import Reflex
   ( Adjustable,
@@ -226,6 +235,14 @@ nothingBurger ::
   m (Event t (Maybe a))
 nothingBurger = pure . updated $ constDyn Nothing
 
+maybeTrue :: a -> Bool -> Maybe a
+maybeTrue a True = Just a
+maybeTrue _ False = Nothing
+
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x : _) = Just x
+
 -- | Given a `Bounded a`, `Enum a`, take a lable, an initial display, a way to to show that `a` and generate a `DearImgUI.combo` dropdown that allows the user to
 -- select a value of `a`
 comboFromBoundedEnum ::
@@ -248,11 +265,7 @@ comboFromBoundedEnum label previewValue showFn = do
               _ <- maybe (pure ()) (fireFn . Just) v -- Only update the event if we have a selection.  Otherewise future redraws will set it to Nothing
               DearImGui.endCombo
           )
-    maybeTrue a True = Just a
-    maybeTrue _ False = Nothing
     mkSelectable a = maybeTrue a <$> DearImGui.selectable (showFn a)
-    safeHead [] = Nothing
-    safeHead (x : _) = Just x
 
 whenTrue :: IO () -> Bool -> IO ()
 whenTrue f True = f
@@ -434,3 +447,62 @@ colorPicker descD initValue = do
               )
       )
   pure eValue
+
+-- | Wraps `DearImgui.bullet`
+plotHistogram ::
+  ( ImGuiSDLReflex t m
+  ) =>
+  Dynamic t String ->
+  Dynamic t [Float] ->
+  m ()
+plotHistogram tD dD = do
+  commitAction $
+    ffor
+      (zipDyn' tD dD)
+      (\(t :/\ d) -> DearImGui.plotHistogram t ((coerce :: [Float] -> [CFloat]) d))
+
+-- | Wraps `DearImgui.begin` and `DearImgui.end`
+-- This draws windows at every `sdlTick` as we have to drive the FRP network with something.
+menuBar ::
+  ( ImGuiSDLReflex t m
+  ) =>
+  m a ->
+  m a
+menuBar child = do
+  tickD <- sdlTick
+  commitAction $ ffor tickD (const . void $ DearImGui.beginMenuBar)
+  child' <- child -- would be nice to only issue the childs events if the window is open, but this will make the result of this function into an `Event` which is probably too much hassle to be worth it, esp since conditionally rendering the window as a whole is relatively easy in reflex.
+  commitAction $ ffor tickD (const DearImGui.endMenuBar)
+  pure child'
+
+-- | For some GADT-like thing f, for which there exists `ArgDict` instances and `forall a. => Show a, Enum a, Bounded a` in `f a`, generate one menu entry per key `f` and one menu item per `a`.
+-- Return a an Event containing the `DSum f Identity` of any selected item.
+menuBarFromBoundedEnum ::
+  (Has Enum f, Has Bounded f, Has Show f, ImGuiSDLReflex t m) =>
+  Dynamic t [Some f] ->
+  (Some f -> String) ->
+  m (Event t (Maybe (DSum f Identity)))
+menuBarFromBoundedEnum msD showFn = do
+  (eSelected, eFire) <- newTriggerEvent
+  commitAction $ ffor msD (\ms -> liftIO $ combo' ms eFire)
+  pure eSelected
+  where
+    combo' ms fireFn = do
+      DearImGui.beginMainMenuBar
+        >>= whenTrue
+          ( do
+              traverse_ (mkMenu fireFn) ms
+              DearImGui.endMainMenuBar
+          )
+    mkMenu fireFn fa@(Some f) =
+      has @Show f $
+        has @Enum f $
+          has @Bounded f $
+            DearImGui.beginMenu (showFn fa)
+              >>= whenTrue
+                ( do
+                    v <- safeHead . catMaybes <$> traverse mkItem [minBound .. maxBound]
+                    _ <- maybe (pure ()) (fireFn . Just . (f ==>)) v -- Only update the event if we have a selection.  Otherewise future redraws will set it to Nothing
+                    DearImGui.endMenu
+                )
+    mkItem a = maybeTrue a <$> DearImGui.menuItem (show a)

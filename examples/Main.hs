@@ -1,8 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -10,22 +16,136 @@
 module Main (main) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception
+import Control.Exception (bracket, bracket_)
 import Control.Monad (forM_, guard, void)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Managed
+  ( MonadIO (liftIO),
+    managed,
+    managed_,
+    runManaged,
+  )
 import Control.Monad.Reader (MonadReader (..), runReaderT)
-import DearImGui hiding (button, combo, dragFloat, dragFloat4, progressBar, selectable, separator, sliderFloat2, smallButton, text)
+import Data.Constraint.Extras (Has, has)
+import Data.Constraint.Extras.TH (deriveArgDict)
+import Data.Dependent.Sum (DSum (..), (==>))
+import Data.Foldable (traverse_)
+import Data.Functor.Identity (Identity (..))
+import Data.Some (Some (..))
+import DearImGui
+  ( ImVec3 (ImVec3),
+    createContext,
+    destroyContext,
+    getDrawData,
+    newFrame,
+    render,
+  )
 import qualified DearImGui
 import DearImGui.OpenGL
+  ( openGL2Init,
+    openGL2NewFrame,
+    openGL2RenderDrawData,
+    openGL2Shutdown,
+  )
 import DearImGui.SDL
-import DearImGui.SDL.OpenGL
+  ( pollEventWithImGui,
+    sdl2NewFrame,
+    sdl2Shutdown,
+  )
+import DearImGui.SDL.OpenGL (sdl2InitForOpenGL)
 import Graphics.GL
 import Reflex
-import Reflex.DearImGui
+  ( DynamicWriter,
+    PerformEvent (performEvent_),
+    Reflex (updated),
+    constDyn,
+    ffor,
+    runDynamicWriterT,
+  )
+import Reflex.DearImGui ()
 import Reflex.DearImGui.Types
 import Reflex.SDL2
+  ( BlendMode (BlendAlphaBlend),
+    MonadIO (liftIO),
+    ReflexSDL2,
+    Renderer,
+    V2 (V2),
+    Window,
+    WindowConfig
+      ( windowGraphicsContext,
+        windowHighDPI,
+        windowInitialSize,
+        windowResizable
+      ),
+    WindowGraphicsContext (OpenGLContext),
+    createRenderer,
+    createWindow,
+    defaultOpenGL,
+    defaultRenderer,
+    defaultWindow,
+    destroyRenderer,
+    destroyWindow,
+    glCreateContext,
+    glDeleteContext,
+    glSwapWindow,
+    holdView,
+    host,
+    initializeAll,
+    rendererDrawBlendMode,
+    ($=),
+  )
 import SDL
+  ( BlendMode (BlendAlphaBlend),
+    Renderer,
+    V2 (V2),
+    Window,
+    WindowConfig
+      ( windowGraphicsContext,
+        windowHighDPI,
+        windowInitialSize,
+        windowResizable
+      ),
+    WindowGraphicsContext (OpenGLContext),
+    createRenderer,
+    createWindow,
+    defaultOpenGL,
+    defaultRenderer,
+    defaultWindow,
+    destroyRenderer,
+    destroyWindow,
+    glCreateContext,
+    glDeleteContext,
+    glSwapWindow,
+    initializeAll,
+    rendererDrawBlendMode,
+    ($=),
+  )
+
+data FileOptions
+  = NewFile
+  | OpenFile
+  | EtcFile
+  deriving (Eq, Enum, Bounded, Show)
+
+data EdtOptions = EditFoo | EditBar deriving (Eq, Enum, Bounded, Show)
+
+data AMenu a where
+  File :: AMenu FileOptions
+  Edit :: AMenu EdtOptions
+  DoesAnyoneUseMenusLikeThisAnymore :: AMenu Bool
+
+deriving instance Show (AMenu a)
+
+deriveArgDict ''AMenu
+
+data ASum
+  = OneThing
+  | Another
+  | AndAnother
+  deriving (Eq, Enum, Bounded, Show)
+
+showSome :: (forall a. Show a => Show (f a), Has Show f) => Some f -> String
+showSome (Some f) = has @Show f $ show f
 
 main :: IO ()
 main = do
@@ -58,17 +178,21 @@ app win = do
   where
     untilNothingM m = m >>= maybe (return ()) (\_ -> untilNothingM m)
 
-data ASum
-  = OneThing
-  | Another
-  | AndAnother
-  deriving (Eq, Enum, Bounded, Show)
-
 guest :: (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m, MonadReader Renderer m) => m ()
 guest = do
+  menuE <- menuBarFromBoundedEnum (constDyn [Some File, Some Edit, Some DoesAnyoneUseMenusLikeThisAnymore]) showSome
   eC <- window "Bar Window" $ do
-    text "Bar"
-    button "click me"
+    holdViewVoid (pure ()) $
+      ffor menuE $
+        \case
+          Just (File :=> Identity NewFile) -> text . constDyn $ "You selected new file!"
+          Just (File :=> Identity OpenFile) -> text . constDyn $ "You selected open file!"
+          Just (File :=> Identity EtcFile) -> text . constDyn $ "You selected etc file!"
+          Just (Edit :=> Identity EditFoo) -> text . constDyn $ "You selected edit foo!"
+          Just (Edit :=> Identity EditBar) -> text . constDyn $ "You selected edit bar!"
+          Just (DoesAnyoneUseMenusLikeThisAnymore :=> Identity True) -> text . constDyn $ "Really?"
+          Just (DoesAnyoneUseMenusLikeThisAnymore :=> Identity False) -> text . constDyn $ "¯\\_(ツ)_/¯"
+    button "Click me!"
   void . holdView (window "The button is yet unclicked" $ pure ()) $
     ffor eC $
       const
@@ -95,6 +219,11 @@ guest = do
               holdViewVoid (pure ()) $
                 ffor colorE $ \(ImVec3 x y z) -> do
                   text . constDyn $ "You selected:  " <> show (x, y, z)
+              separator $ pure ()
+              plotHistogram "Histogram" (constDyn [0 .. 100])
         )
   void . holdView (window "Progress" $ progressBar (constDyn 0) (constDyn $ Just "0%")) $
-    ffor eC $ const (window "Progress!" $ progressBar (constDyn 0.5) (constDyn $ Just "50%"))
+    ffor eC $
+      const
+        ( window "Progress!" $ progressBar (constDyn 0.5) (constDyn $ Just "50%")
+        )
