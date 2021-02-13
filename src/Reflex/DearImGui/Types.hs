@@ -477,12 +477,12 @@ menuBar child = do
 
 -- | For some GADT-like thing f, for which there exists `ArgDict` instances and `forall a. => Show a, Enum a, Bounded a` in `f a`, generate one menu entry per key `f` and one menu item per `a`.
 -- Return a an Event containing the `DSum f Identity` of any selected item.
-menuBarFromBoundedEnum ::
+mainMenuBarFromBoundedEnum ::
   (Has Enum f, Has Bounded f, Has Show f, ImGuiSDLReflex t m) =>
   Dynamic t [Some f] ->
   (Some f -> String) ->
   m (Event t (Maybe (DSum f Identity)))
-menuBarFromBoundedEnum msD showFn = do
+mainMenuBarFromBoundedEnum msD showFn = do
   (eSelected, eFire) <- newTriggerEvent
   commitAction $ ffor msD (\ms -> liftIO $ combo' ms eFire)
   pure eSelected

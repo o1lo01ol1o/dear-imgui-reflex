@@ -180,8 +180,8 @@ app win = do
 
 guest :: (ReflexSDL2 t m, DynamicWriter t [ImGuiAction m] m, MonadReader Renderer m) => m ()
 guest = do
-  menuE <- menuBarFromBoundedEnum (constDyn [Some File, Some Edit, Some DoesAnyoneUseMenusLikeThisAnymore]) showSome
-  eC <- window "Bar Window" $ do
+  menuE <- mainMenuBarFromBoundedEnum (constDyn [Some File, Some Edit, Some DoesAnyoneUseMenusLikeThisAnymore]) showSome
+  eC <- window "A Window" $ do
     holdViewVoid (pure ()) $
       ffor menuE $
         \case
