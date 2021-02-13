@@ -73,7 +73,7 @@ library
     Reflex.DearImGui.Types
 
 executable dear-imgui-reflex-example
-  hs-source-dirs: examples
+  hs-source-dirs: examples/example
   main-is:        Main.hs
   build-depends:
     , base

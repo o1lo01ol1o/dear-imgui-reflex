@@ -14,13 +14,13 @@ module Reflex.DearImGui.Types where
 
 import Control.Monad.Reader (MonadFix, MonadIO (..), void)
 import Data.Coerce (coerce)
-import Data.Constraint.Extras ( has, Has )
-import Data.Dependent.Sum ( DSum(..), (==>) )
+import Data.Constraint.Extras (Has, has)
+import Data.Dependent.Sum (DSum (..), (==>))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (Identity)
 import Data.IORef (newIORef, readIORef)
 import Data.Maybe (catMaybes)
-import Data.Some ( Some(..) )
+import Data.Some (Some (..))
 import qualified DearImGui
 import Foreign.C (CFloat (..))
 import GHC.IORef (IORef)

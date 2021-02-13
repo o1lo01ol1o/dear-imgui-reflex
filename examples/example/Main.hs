@@ -41,11 +41,11 @@ import DearImGui
     render,
   )
 import qualified DearImGui
-import DearImGui.OpenGL
-  ( openGL2Init,
-    openGL2NewFrame,
-    openGL2RenderDrawData,
-    openGL2Shutdown,
+import DearImGui.OpenGL3
+  ( openGL3Init,
+    openGL3NewFrame,
+    openGL3RenderDrawData,
+    openGL3Shutdown,
   )
 import DearImGui.SDL
   ( pollEventWithImGui,
@@ -164,7 +164,7 @@ main = do
     rendererDrawBlendMode r $= BlendAlphaBlend
     _ <- managed $ bracket createContext destroyContext
     _ <- managed_ $ bracket_ (sdl2InitForOpenGL window glContext) sdl2Shutdown
-    _ <- managed_ $ bracket_ openGL2Init openGL2Shutdown
+    _ <- managed_ $ bracket_ openGL3Init openGL3Shutdown
     liftIO $ host $ runReaderT (app window) r
 
 app :: (ReflexSDL2 t m, MonadReader Renderer m) => Window -> m ()
@@ -172,9 +172,9 @@ app win = do
   (_, dynActions) <- runDynamicWriterT guest
   performEvent_ $
     ffor (updated dynActions) $ \actions -> do
-      sequence_ [untilNothingM pollEventWithImGui, openGL2NewFrame, sdl2NewFrame win, newFrame]
+      sequence_ [untilNothingM pollEventWithImGui, openGL3NewFrame, sdl2NewFrame win, newFrame]
       sequence_ actions
-      sequence_ [glClear GL_COLOR_BUFFER_BIT, render, openGL2RenderDrawData =<< getDrawData, glSwapWindow win]
+      sequence_ [glClear GL_COLOR_BUFFER_BIT, render, openGL3RenderDrawData =<< getDrawData, glSwapWindow win]
   where
     untilNothingM m = m >>= maybe (return ()) (\_ -> untilNothingM m)
 
