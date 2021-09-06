@@ -7,9 +7,9 @@ homepage:        https://github.com/o1lo01ol1o/dear-imgui-reflex
 bug-reports:     https://github.com/o1lo01ol1o/dear-imgui-reflex/issues
 license:         MIT
 license-file:    LICENSE
-author:          Tim
-maintainer:      Tim <tim.pierson@gmail.com>
-copyright:       2021 Tim
+author:          o1lo01ol1o
+maintainer:      o1lo01ol1o <tim.pierson@gmail.com>
+copyright:       2021 o1lo01ol1o
 category:        Graphics
 build-type:      Simple
 extra-doc-files:
