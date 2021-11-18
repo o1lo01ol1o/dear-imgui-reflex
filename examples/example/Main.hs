@@ -172,7 +172,7 @@ app win = do
   (_, dynActions) <- runDynamicWriterT guest
   performEvent_ $
     ffor (updated dynActions) $ \actions -> do
-      sequence_ [untilNothingM pollEventWithImGui, openGL3NewFrame, sdl2NewFrame win, newFrame]
+      sequence_ [untilNothingM pollEventWithImGui, openGL3NewFrame, sdl2NewFrame, newFrame]
       sequence_ actions
       sequence_ [glClear GL_COLOR_BUFFER_BIT, render, openGL3RenderDrawData =<< getDrawData, glSwapWindow win]
   where
@@ -197,7 +197,7 @@ guest = do
     ffor eC $
       const
         ( window "There was a click!" $ do
-            childWindow "And?" $ do
+            childWindow (pure $ defaultImGuiWindowConfig { name = "And?" }) $ do
               text "See how we react?"
               separator $ pure ()
               selectionE <- comboFromBoundedEnum @ASum "A multi-select" "ASum value" show
