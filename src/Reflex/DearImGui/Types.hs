@@ -130,15 +130,27 @@ window tD child = do
   commitAction $ ffor (zipDyn' tD tickD) (const DearImGui.end)
   pure child'
 
+data ImGuiWindowConfig = ImGuiWindowConfig { name   :: String
+                                           , size   :: !DearImGui.ImVec2
+                                           , border :: !Bool
+                                           , flags  :: !DearImGui.ImGuiWindowFlags
+                                           }
+                       deriving stock (Show)
+
+defaultImGuiWindowConfig :: ImGuiWindowConfig
+defaultImGuiWindowConfig =
+  ImGuiWindowConfig "Child" (DearImGui.ImVec2 0 0) True DearImGui.ImGuiWindowFlags_None
+
+
 -- | Wraps `DearImgui.beginChild` and `DearImgui.endChild`
 childWindow ::
   ( ImGuiSDLReflex t m
   ) =>
-  Dynamic t String ->
+  Dynamic t ImGuiWindowConfig ->
   m a ->
   m a
 childWindow tD child = do
-  commitAction $ ffor tD (void . DearImGui.beginChild)
+  commitAction $ ffor tD (\(ImGuiWindowConfig n s b fs) -> void $ DearImGui.beginChild n s b fs)
   child' <- child -- see the comment on `window`
   commitAction $ ffor tD (const DearImGui.endChild)
   pure child'

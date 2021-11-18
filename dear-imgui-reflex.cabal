@@ -24,11 +24,11 @@ source-repository head
 
 common common-options
   build-depends:
-    , base                    ^>=4.13.0.0
+    , base                    >=4.13
     , bytestring
     , constraints
     , constraints-extras
-    , dear-imgui
+    , dear-imgui              >= 1.2.2
     , exception-transformers
     , dependent-map
     , dependent-sum
